@@ -3,7 +3,7 @@
 ## Location
 The Temporal server files are located at:
 ```
-/Users/yishu/code/temporal-server
+~/code/temporal-server
 ```
 
 ## Starting the Temporal Server
@@ -11,7 +11,7 @@ To start the Temporal server:
 
 1. Navigate to the Temporal server directory:
    ```bash
-   cd /Users/yishu/code/temporal-server
+   cd ~/code/temporal-server
    ```
 
 2. Start the server using Docker Compose:
@@ -25,6 +25,11 @@ To start the Temporal server:
    - temporal-postgresql (database)
    - temporal-elasticsearch (for advanced visibility)
    - temporal-admin-tools (CLI tools)
+
+   Alternatively, use the provided script:
+   ```bash
+   ./start-temporal.sh
+   ```
 
 3. Wait a few moments for all services to initialize.
 
@@ -40,12 +45,17 @@ To shut down the Temporal server:
 
 1. Navigate to the Temporal server directory:
    ```bash
-   cd /Users/yishu/code/temporal-server
+   cd ~/code/temporal-server
    ```
 
 2. Stop and remove all containers:
    ```bash
    docker-compose down
+   ```
+
+   Alternatively, use the provided script:
+   ```bash
+   ./stop-temporal.sh
    ```
 
 ## Using the Temporal CLI (tctl)

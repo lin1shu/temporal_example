@@ -19,7 +19,7 @@ pip3 install temporalio
 
 1. Start the Temporal server:
    ```bash
-   cd /Users/yishu/code/temporal-server
+   cd /Users/yishul/code/temporal-server
    docker-compose up -d
    ```
 
