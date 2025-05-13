@@ -15,6 +15,8 @@ pip3 install temporalio
 
 ## Running the Application
 
+### Basic Setup
+
 1. Start the Temporal server:
    ```bash
    cd /Users/yishu/code/temporal-server
@@ -42,6 +44,32 @@ pip3 install temporalio
    http://localhost:8080
    ```
 
+### Advanced Setup with Multiple Workers
+
+This application supports running multiple workers in parallel for increased throughput and to demonstrate a distributed system.
+
+1. Start 10 worker processes in parallel:
+   ```bash
+   python3 start_workers.py
+   ```
+   This will start 10 worker processes, each with a unique ID. The script will automatically restart any worker that crashes.
+
+2. In another terminal, run the continuous workflow starter:
+   ```bash
+   python3 starter.py
+   ```
+   This will continuously submit workflows with random names ("World-XXXXX") and random delays between submissions.
+
+3. To stop the processes:
+   ```bash
+   # Stop the starter
+   pkill -f "python3 starter.py"
+   
+   # Stop all workers (including the start_workers.py script)
+   pkill -f "python3 start_workers.py"
+   pkill -f "python3 worker.py"
+   ```
+
 ## How It Works
 
 1. **Components**:
@@ -58,7 +86,13 @@ pip3 install temporalio
    - The activity runs, printing and returning "Hello, World!"
    - The result is returned to the workflow and then to the starter
 
-3. **Key Benefits**:
+3. **Multi-Worker Parallelism**:
+   - Multiple workers connect to the same task queue
+   - Workers compete to execute workflows (first available worker gets the task)
+   - Each worker runs independently and can process workflows in parallel
+   - The system demonstrates horizontal scaling capabilities
+
+4. **Key Benefits**:
    - **Durability**: Workflow state persists through crashes
    - **Retries**: Activities automatically retry on failure
    - **Visibility**: Monitor executions in the Temporal UI
@@ -69,5 +103,6 @@ pip3 install temporalio
 - `workflow.py`: Contains the HelloWorldWorkflow definition
 - `activities.py`: Contains the say_hello activity
 - `worker.py`: Registers and runs the workflow and activities
-- `starter.py`: Initiates the workflow execution
+- `starter.py`: Initiates the workflow execution continuously with random names
+- `start_workers.py`: Script to start and manage multiple worker processes
 - `TEMPORAL_SERVER.md`: Instructions for setting up and running the Temporal server 
