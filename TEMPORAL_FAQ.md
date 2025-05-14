@@ -193,4 +193,262 @@ The parameter `name` is:
 3. Retrieved by the activity worker
 4. Deserialized from JSON back to a Python string
 
-This serialization/deserialization is handled automatically by the Temporal SDK, making it transparent to your code. It allows activities and workflows to run on completely different processes or machines while still communicating effectively. 
+This serialization/deserialization is handled automatically by the Temporal SDK, making it transparent to your code. It allows activities and workflows to run on completely different processes or machines while still communicating effectively.
+
+## Parallel Execution and DAG Workflows
+
+### Q: How does Temporal handle parallel activity execution?
+
+**A:** Temporal's approach to parallel activity execution is fundamentally different from traditional multi-threading or multiprocessing:
+
+1. **Workflow Determinism**:
+   - Workflow code is always single-threaded and deterministic
+   - Even when dealing with parallel activities, the workflow itself runs sequentially
+
+2. **Distributed Activity Execution**:
+   - When a workflow needs to run activities in parallel, it schedules all of them with the Temporal server
+   - The server dispatches these activities as separate tasks
+   - Different workers can pick up these tasks and execute them simultaneously
+   - The parallelism comes from having multiple workers, not from multithreading in the workflow code
+
+3. **Task Queues as Coordination Mechanism**:
+   - Activity tasks are placed on task queues
+   - Multiple workers can poll the same queue or dedicated queues
+   - Temporal handles the coordination and routing of tasks to available workers
+
+4. **Waiting for Parallel Completion**:
+   - The workflow can use `await asyncio.gather()` (Python) to wait for multiple activities
+   - This doesn't block the worker thread - Temporal will pause the workflow execution
+   - When all activities complete, Temporal resumes the workflow with all results
+
+For example, in our DAG workflow:
+
+```python
+# Schedule three activities in parallel
+a_task = workflow.execute_activity(activity_a, ...)
+b_task = workflow.execute_activity(activity_b, ...)
+c_task = workflow.execute_activity(activity_c, ...)
+
+# Wait for all to complete
+a_result, b_result, c_result = await asyncio.gather(a_task, b_task, c_task)
+
+# Proceed with results from all three
+d_result = await workflow.execute_activity(activity_d, args=[a_result, b_result, c_result], ...)
+```
+
+This pattern allows for true parallelism without sacrificing workflow determinism.
+
+### Q: Are parallel activities executed in threads or separate processes?
+
+**A:** Parallel activities in Temporal are typically executed in separate processes, not threads:
+
+1. **Default Execution Model**:
+   - By default, a single worker process handles one activity at a time sequentially
+   - Parallelism comes from having multiple worker processes
+
+2. **Worker Process Independence**:
+   - Each worker process runs independently
+   - Separate worker processes can execute different activities simultaneously
+   - Activities in different processes are truly parallel (not constrained by Python's GIL)
+
+3. **Configurable Worker Concurrency**:
+   - Workers can be configured with `max_concurrent_activities` to process multiple activities
+   - Even with concurrent processing, each activity gets its own isolated execution context
+
+4. **Dedicated Workers for Specific Activities**:
+   - As demonstrated in our implementation, you can create dedicated workers for specific activities
+   - Worker-1 for Activity A, Worker-2 for Activity B, etc.
+   - Using dedicated task queues guarantees activities run on their assigned workers
+
+In our DAG example, we specifically designed the system so:
+- Each parallel activity (A, B, C) has its own dedicated task queue
+- Each activity is registered on a specific worker (1, 2, or 3)
+- The logs show different PIDs for each activity, confirming they run in separate processes
+- This ensures true parallelism even when all workers run on the same machine
+
+### Q: If all parallel activities A, B, and C are picked up by the same worker, will they still run in parallel?
+
+**A:** If all parallel activities A, B, and C are picked up by the same worker process with default settings, they will be executed sequentially, not in parallel:
+
+1. **Default Worker Behavior**:
+   - By default, a Temporal worker processes one activity at a time
+   - Even though the workflow code schedules them "in parallel" with `asyncio.gather()`, the execution happens one after another if there's only one worker
+
+2. **Options for True Parallelism**:
+   - **Multiple Worker Processes**: Run multiple worker processes (most reliable approach)
+   - **Worker Concurrency Settings**: Configure the worker with `max_concurrent_activities` parameter
+   - **Dedicated Task Queues**: Assign activities to different task queues handled by different workers
+
+3. **Our Implementation Approach**:
+   - We use dedicated task queues (e.g., "activity-a-task-queue", "activity-b-task-queue")
+   - We configure specific workers to handle specific task queues 
+   - This guarantees activities run on separate worker processes, ensuring true parallelism
+
+The logs from our implementation clearly show this pattern:
+```
+[Worker-1] Activity A processed by worker on yishul-mlt (PID: 91027)
+[Worker-2] Activity B processed by worker on yishul-mlt (PID: 91029)
+[Worker-3] Activity C processed by worker on yishul-mlt (PID: 91030)
+```
+
+Different PIDs confirm the activities are running in separate processes, achieving true parallelism.
+
+### Q: How does Temporal implement DAGs (Directed Acyclic Graphs) of activities?
+
+**A:** Temporal doesn't have an explicit "DAG" construct, but it enables DAG patterns through its workflow programming model:
+
+1. **Workflow Code as the DAG Definition**:
+   - The workflow code itself defines the DAG structure
+   - Sequential dependencies are expressed through `await` statements
+   - Parallel execution is achieved by scheduling multiple activities and waiting for all
+
+2. **Activity Dependencies**:
+   - Activities can depend on the results of other activities
+   - The workflow code enforces these dependencies
+   - Temporal ensures the correct execution order
+
+3. **Example DAG Implementation**:
+   ```python
+   # Sequential dependency
+   hello_result = await workflow.execute_activity(say_hello, name, ...)
+   hi_result = await workflow.execute_activity(say_hi, hello_result, ...)
+   
+   # Parallel activities (fan-out)
+   a_task = workflow.execute_activity(activity_a, ...)
+   b_task = workflow.execute_activity(activity_b, ...)
+   c_task = workflow.execute_activity(activity_c, ...)
+   
+   # Join point (fan-in)
+   a_result, b_result, c_result = await asyncio.gather(a_task, b_task, c_task)
+   
+   # Final activity depends on all parallel results
+   d_result = await workflow.execute_activity(activity_d, args=[a_result, b_result, c_result], ...)
+   ```
+
+4. **Benefits of This Approach**:
+   - The DAG is expressed as normal code, making it intuitive
+   - Dependencies are type-checked by the language
+   - Data flows naturally between activities
+   - The workflow can include conditional logic and dynamic DAG structures
+
+This model allows for complex DAG structures while maintaining workflow determinism and the ability to replay history correctly after failures.
+
+## Workflow Resumption and Replay Mechanism
+
+### Q: Where are workflows actually executed? On the worker or Temporal's server?
+
+**A:** Workflows are executed on the worker, not on Temporal's server. However, this is more nuanced than it appears:
+
+1. **Workflow Code Location**: 
+   - Your actual workflow code runs on the worker process
+   - All your business logic executes in your environment, not on Temporal's servers
+
+2. **Workflow State Management**:
+   - While the code runs on the worker, all workflow decisions and state changes are recorded and sent to Temporal server
+   - Temporal server stores this execution history as the source of truth
+   - The history becomes the persistent, durable record of the workflow
+
+3. **What Happens During "Waiting"**:
+   - When a workflow reaches `await asyncio.gather()` for parallel activities, the worker doesn't actually block
+   - Instead, the worker records a "waiting state" in the workflow history
+   - The workflow task completes and the worker returns control to Temporal
+   - The workflow execution is effectively paused on the worker side
+
+4. **Example in Logs**:
+   Our logs show this clearly:
+   ```
+   # Workflow execution is distributed across different workers
+   [Worker-6] Activity for World-46049 processed by worker on yishul-mlt (PID: 98645)
+   [Worker-5] Activity say_hi processed by worker on yishul-mlt (PID: 98644)
+   [Worker-1] Activity A processed by worker on yishul-mlt (PID: 98635)
+   [Worker-2] Activity B processed by worker on yishul-mlt (PID: 98636)
+   [Worker-3] Activity C processed by worker on yishul-mlt (PID: 98640)
+   [Worker-7] Activity D processed by worker on yishul-mlt (PID: 98646)
+   ```
+
+### Q: Can a paused workflow be resumed on another worker?
+
+**A:** Yes, a paused workflow can be resumed on an entirely different worker than the one where it was initially running. This is a core feature of Temporal's architecture:
+
+1. **History-Based State Transfer**:
+   - The complete workflow execution history is stored on the Temporal server
+   - When activities complete, any available worker can pick up the workflow task
+   - This worker might be different from the one that started the workflow
+
+2. **Workflow Replay Mechanism**:
+   - The new worker receives the complete execution history
+   - It replays the workflow code from the beginning using the history
+   - It skips re-executing completed activities and instead uses their recorded results
+   - This continues until it reaches the current execution point
+
+3. **Real Example from Our Logs**:
+   Looking at our logs, we can see this happening in practice:
+   ```
+   # First workflow executes say_hello on Worker-9, but activity_d on Worker-5
+   [Worker-9] Activity for World-54214 processed by worker on yishul-mlt (PID: 98648)
+   [Worker-5] Activity say_hi processed by worker on yishul-mlt (PID: 98644)
+   [Worker-1] Activity A processed by worker on yishul-mlt (PID: 98635)
+   [Worker-2] Activity B processed by worker on yishul-mlt (PID: 98636)
+   [Worker-3] Activity C processed by worker on yishul-mlt (PID: 98640)
+   [Worker-5] Activity D processed by worker on yishul-mlt (PID: 98644)
+   
+   # Next workflow uses different workers for each stage
+   [Worker-7] Activity for World-12999 processed by worker on yishul-mlt (PID: 98646)
+   [Worker-5] Activity say_hi processed by worker on yishul-mlt (PID: 98644)
+   [Worker-1] Activity A processed by worker on yishul-mlt (PID: 98635)
+   [Worker-3] Activity C processed by worker on yishul-mlt (PID: 98640)
+   [Worker-2] Activity B processed by worker on yishul-mlt (PID: 98636)
+   [Worker-4] Activity D processed by worker on yishul-mlt (PID: 98641)
+   ```
+
+### Q: How does workflow resumption work with custom code/logic?
+
+**A:** Temporal's ability to resume workflows on different workers with custom code relies on several key principles:
+
+1. **Event Sourcing Architecture**:
+   - Every workflow action is recorded as an event in the history
+   - This history is the source of truth, not any in-memory state
+   - The history includes all inputs, outputs, and decision points
+
+2. **Deterministic Replay**:
+   - When a worker picks up a workflow, it receives the complete history
+   - The worker executes the workflow code from the beginning
+   - For completed activities, it uses results from history instead of re-executing
+   - The code must produce the same decisions given the same inputs
+
+3. **Custom Logic Handling**:
+   - All your custom workflow logic executes on the worker
+   - But it must be deterministic - given the same inputs, it must make the same decisions
+   - Non-deterministic operations (random numbers, current time) use special APIs
+
+4. **Replay to Current Point**:
+   - The worker doesn't "jump" to the paused point
+   - It replays the entire workflow code extremely quickly because:
+     - Activities aren't actually re-executed during replay
+     - Results from history are used instead
+     - Custom logic is re-executed, but deterministically
+
+5. **Example from Our Implementation**:
+   In our code, a workflow might start on Worker-9, then when it needs to wait for activities, it completes that task. Later, when the activities complete, Worker-4 might pick up the workflow:
+   ```python
+   # Initially executed on Worker-9
+   hello_result = await workflow.execute_activity(say_hello, name) # Executed on Worker-6
+   hi_result = await workflow.execute_activity(say_hi, hello_result) # Executed on Worker-5
+   
+   # Worker-9 task completes here, waiting for activities
+   # When activities complete, Worker-4 picks up the workflow and replays to this point
+   
+   # Worker-4 now continues execution
+   a_task = workflow.execute_activity(activity_a)
+   b_task = workflow.execute_activity(activity_b)
+   c_task = workflow.execute_activity(activity_c)
+   
+   # Worker-4 task completes here, waiting for parallel activities
+   # When A, B, C complete, maybe Worker-8 picks up the workflow
+   a_result, b_result, c_result = await asyncio.gather(a_task, b_task, c_task)
+   
+   # Worker-8 continues execution
+   d_result = await workflow.execute_activity(activity_d, args=[a_result, b_result, c_result])
+   ```
+
+The logs confirm this distributed execution pattern across multiple workers, with each picking up where the previous left off, thanks to the deterministic replay mechanism. 
