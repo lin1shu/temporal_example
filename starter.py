@@ -45,7 +45,7 @@ async def main():
                     HelloWorldWorkflow.run,
                     name,
                     id=f"hello-world-workflow-id-{random_num}",
-                    task_queue="hello-world-task-queue",
+                    task_queue="new-main-task-queue",
                 )
                 
                 logger.info(f"Workflow completed with result: {result}")
