@@ -98,11 +98,46 @@ This application supports running multiple workers in parallel for increased thr
    - **Visibility**: Monitor executions in the Temporal UI
    - **Scalability**: Multiple workers can process tasks concurrently
 
+## DAG Workflow Implementation
+
+This project includes a Directed Acyclic Graph (DAG) workflow that demonstrates how to implement parallel activity execution in Temporal:
+
+1. **DAG Structure**:
+   - Sequential execution: `say_hello` → `say_hi`
+   - Parallel execution: Activities A, B, and C run concurrently
+   - Final execution: Activity D runs after all parallel activities complete
+
+2. **Dedicated Worker Assignment**:
+   - Activity A runs exclusively on Worker-1
+   - Activity B runs exclusively on Worker-2
+   - Activity C runs exclusively on Worker-3
+   - Activity say_hi runs exclusively on Worker-5
+   - All workers can handle say_hello and Activity D
+
+3. **Data Flow**:
+   - Each parallel activity (A, B, C) generates a random number
+   - Activity D receives results from all three parallel activities
+   - This demonstrates how Temporal coordinates data dependencies in a DAG
+
+4. **Visualization**:
+   ```
+   [say_hello] → [say_hi] → [A, B, C] → [D]
+                             ↓  ↓  ↓
+                             All results
+                             combined in D
+   ```
+
+5. **True Parallelism**:
+   - By assigning activities to dedicated task queues, we ensure true parallel execution
+   - Even when running on a single machine, activities execute on separate worker processes
+   - The logs clearly show different PIDs for each parallel activity execution
+
 ## Project Structure
 
-- `workflow.py`: Contains the HelloWorldWorkflow definition
-- `activities.py`: Contains the say_hello activity
-- `worker.py`: Registers and runs the workflow and activities
+- `workflow.py`: Contains the HelloWorldWorkflow definition with DAG implementation
+- `activities.py`: Contains all activity definitions (say_hello, say_hi, A, B, C, D)
+- `worker.py`: Registers and runs the workflow and activities on dedicated workers
 - `starter.py`: Initiates the workflow execution continuously with random names
 - `start_workers.py`: Script to start and manage multiple worker processes
-- `TEMPORAL_SERVER.md`: Instructions for setting up and running the Temporal server 
+- `TEMPORAL_SERVER.md`: Instructions for setting up and running the Temporal server
+- `TEMPORAL_FAQ.md`: Frequently asked questions about Temporal concepts 
