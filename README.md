@@ -140,4 +140,4 @@ This project includes a Directed Acyclic Graph (DAG) workflow that demonstrates 
 - `starter.py`: Initiates the workflow execution continuously with random names
 - `start_workers.py`: Script to start and manage multiple worker processes
 - `TEMPORAL_SERVER.md`: Instructions for setting up and running the Temporal server
-- `TEMPORAL_FAQ.md`: Frequently asked questions about Temporal concepts 
+- `TEMPORAL_FAQ.md`: Frequently asked questions about Temporal concepts

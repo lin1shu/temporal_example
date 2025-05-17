@@ -70,4 +70,4 @@ class HelloWorldWorkflow:
             f"Final: {d_result}"
         )
         
-        return workflow_result 
+        return workflow_result
