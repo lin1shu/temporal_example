@@ -56,8 +56,8 @@ async def main():
             except Exception as e:
                 logger.error(f"Error executing workflow: {e}")
             
-            # Random delay between workflows (0 to 5 seconds)
-            sleep_time = random.uniform(0, 5)
+            # Random delay between workflows (0 to 0.5 seconds)
+            sleep_time = random.uniform(0, 0.5)
             logger.info(f"Sleeping for {sleep_time:.2f} seconds before next workflow...")
             await asyncio.sleep(sleep_time)
     except KeyboardInterrupt:
