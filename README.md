@@ -64,7 +64,7 @@ This application supports running multiple workers in parallel for increased thr
    ```bash
    # Stop the starter
    pkill -f "python3 starter.py"
-   
+
    # Stop all workers (including the start_workers.py script)
    pkill -f "python3 start_workers.py"
    pkill -f "python3 worker.py"
