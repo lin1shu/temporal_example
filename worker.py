@@ -86,11 +86,17 @@ async def main():
             # Register all workers with the stack
             for worker in workers:
                 await stack.enter_async_context(worker)
-            
-            logger.info(f"Worker-{worker_id} started and ready to process tasks. Ctrl+C to exit.")
-            # Wait forever or until interrupted
-            await asyncio.Future()
-            
+
+            logger.info(
+                f"Worker-{worker_id} started and ready to process tasks. Ctrl+C to exit."
+            )
+
+            try:
+                # Wait forever or until interrupted
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                logger.info("Shutdown requested. Closing worker...")
+
     except Exception as e:
         logger.error(f"Error in worker: {e}")
         raise
@@ -121,4 +127,7 @@ class AsyncExitStack:
         return result
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.getLogger().info("Shutdown requested. Exiting...")
