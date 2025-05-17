@@ -79,7 +79,7 @@ This application supports running multiple workers in parallel for increased thr
    - **Activities**: Individual units of work that can be retried independently
 
 2. **Execution Flow**:
-   - The worker connects to Temporal and registers for the "hello-world-task-queue"
+   - The worker connects to Temporal and registers for the "new-main-task-queue"
    - The starter initiates a workflow with the parameter "World"
    - Temporal dispatches the workflow task to our worker
    - The workflow executes and calls the "say_hello" activity
@@ -108,11 +108,11 @@ This project includes a Directed Acyclic Graph (DAG) workflow that demonstrates 
    - Final execution: Activity D runs after all parallel activities complete
 
 2. **Dedicated Worker Assignment**:
-   - Activity A runs exclusively on Worker-1
-   - Activity B runs exclusively on Worker-2
-   - Activity C runs exclusively on Worker-3
-   - Activity say_hi runs exclusively on Worker-5
-   - All workers can handle say_hello and Activity D
+   - Activity A runs exclusively on Worker-1 via the `new-activity-a-task-queue`
+   - Activity B runs exclusively on Worker-2 via the `new-activity-b-task-queue`
+   - Activity C runs exclusively on Worker-3 via the `new-activity-c-task-queue`
+   - Activity `say_hi` runs exclusively on Worker-5 via the `new-say-hi-task-queue`
+   - All workers can handle `say_hello` and Activity D on the `new-main-task-queue`
 
 3. **Data Flow**:
    - Each parallel activity (A, B, C) generates a random number
@@ -128,7 +128,7 @@ This project includes a Directed Acyclic Graph (DAG) workflow that demonstrates 
    ```
 
 5. **True Parallelism**:
-   - By assigning activities to dedicated task queues, we ensure true parallel execution
+   - By assigning activities to dedicated task queues (e.g., `new-say-hi-task-queue`, `new-activity-a-task-queue`, etc.), we ensure true parallel execution
    - Even when running on a single machine, activities execute on separate worker processes
    - The logs clearly show different PIDs for each parallel activity execution
 

@@ -6,7 +6,7 @@
 
 **A:** The workers (launched by start_workers.py) only *poll* for tasks - they don't create any workflows themselves.
 
-Workers connect to the Temporal server and essentially say "I'm available to do work on the 'hello-world-task-queue' - do you have anything for me?"
+Workers connect to the Temporal server and essentially say "I'm available to do work on the 'new-main-task-queue' - do you have anything for me?"
 
 If no one is submitting workflows (via starter.py), then the task queue remains empty.
 
@@ -44,7 +44,7 @@ The separation between the Temporal server (which orchestrates and persists work
 
 **A:** When workers connect to the Temporal server, they register themselves with specific information:
 
-1. **Task Queue Name**: The worker declares which task queue(s) it will poll for work (in your example, "hello-world-task-queue")
+1. **Task Queue Name**: The worker declares which task queue(s) it will poll for work (in your example, "new-main-task-queue")
 
 2. **Workflow Types**: The worker explicitly registers which workflow types it can execute (in your code, `workflows=[HelloWorldWorkflow]`)
 
@@ -53,9 +53,9 @@ The separation between the Temporal server (which orchestrates and persists work
 This registration process tells the Temporal server:
 - "I'm a worker that can handle HelloWorldWorkflow workflows"
 - "I can execute the say_hello activity"
-- "Send me tasks from the hello-world-task-queue"
+- "Send me tasks from the new-main-task-queue"
 
-The Temporal server uses this information to route tasks appropriately. When a client submits a workflow execution request for "HelloWorldWorkflow" targeting the "hello-world-task-queue", the server knows which workers can handle it.
+The Temporal server uses this information to route tasks appropriately. When a client submits a workflow execution request for "HelloWorldWorkflow" targeting the "new-main-task-queue", the server knows which workers can handle it.
 
 This explicit registration is important because:
 - It ensures tasks are only sent to workers that can handle them
@@ -280,7 +280,7 @@ In our DAG example, we specifically designed the system so:
    - **Dedicated Task Queues**: Assign activities to different task queues handled by different workers
 
 3. **Our Implementation Approach**:
-   - We use dedicated task queues (e.g., "activity-a-task-queue", "activity-b-task-queue")
+   - We use dedicated task queues (e.g., "new-activity-a-task-queue", "new-activity-b-task-queue", "new-activity-c-task-queue", "new-say-hi-task-queue")
    - We configure specific workers to handle specific task queues 
    - This guarantees activities run on separate worker processes, ensuring true parallelism
 
