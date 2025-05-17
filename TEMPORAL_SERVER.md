@@ -81,4 +81,4 @@ If you see connection errors like "Connection refused" when trying to connect to
 
 2. If no containers are running, start the server as described above.
 
-3. Make sure your application is connecting to the correct address (`localhost:7233`). 
+3. Make sure your application is connecting to the correct address (`localhost:7233`).

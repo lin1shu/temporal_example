@@ -64,4 +64,4 @@ async def main():
         logger.info("Workflow execution stopped by user")
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

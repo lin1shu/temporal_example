@@ -122,4 +122,4 @@ async def activity_d(*args) -> str:
     logging.info(f"Activity D processed by worker on {hostname} (PID: {pid})")
     logging.info(f"D received results: {a_result}, {b_result}, {c_result}")
     
-    return message 
+    return message

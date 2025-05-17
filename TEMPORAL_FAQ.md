@@ -451,4 +451,4 @@ This model allows for complex DAG structures while maintaining workflow determin
    d_result = await workflow.execute_activity(activity_d, args=[a_result, b_result, c_result])
    ```
 
-The logs confirm this distributed execution pattern across multiple workers, with each picking up where the previous left off, thanks to the deterministic replay mechanism. 
+The logs confirm this distributed execution pattern across multiple workers, with each picking up where the previous left off, thanks to the deterministic replay mechanism.
