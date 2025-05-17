@@ -57,7 +57,7 @@ class HelloWorldWorkflow:
         # Pass the results as a single list argument rather than multiple positional args
         d_result = await workflow.execute_activity(
             activity_d,
-            args=[a_result, b_result, c_result],  # Pass as args list
+            [a_result, b_result, c_result],  # pass results as single list argument
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=RetryPolicy(maximum_attempts=3),
             task_queue="new-main-task-queue",  # New task queue name
